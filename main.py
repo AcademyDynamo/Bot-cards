@@ -9,7 +9,7 @@ import aiosqlite
 import json
 
 # === Настройки ===
-BOT_TOKEN = 'YOUR_BOT_TOKEN'  # Замени на свой токен
+BOT_TOKEN = '7923361349:AAGTPCue8uRWM99CwX2cFNIQX1M46WRFKJY'
 PHOTOS_DIR = 'photos/'
 DAILY_RESET_HOUR = 0  # Не используется пока
 
