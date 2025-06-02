@@ -7,7 +7,7 @@ import sqlite3
 import json
 
 # === Настройки ===
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # Токен устанавливается через переменные окружения
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Установите в Secrets на платформе
 PHOTOS_DIR = 'photos/'
 DAILY_RESET_HOUR = 0  # Ежедневный сброс попыток
 
@@ -24,14 +24,20 @@ main_keyboard.row(
 )
 
 collection_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-collection_keyboard.add(types.KeyboardButton("⬅️ Предыдущая"), types.KeyboardButton("➡️ Следующая"))
+collection_keyboard.row(
+    types.KeyboardButton("⬅️ Предыдущая"),
+    types.KeyboardButton("➡️ Следующая")
+)
 collection_keyboard.add(types.KeyboardButton("Вернуться в меню"))
 
 # === JSON загрузка ===
 def load_captions():
     try:
         with open("captions.json", "r", encoding="utf-8-sig") as f:
-            return json.load(f)
+            content = f.read()
+            if not content.strip():
+                return {}
+            return json.loads(content)
     except Exception as e:
         print(f"[Ошибка captions.json] {e}")
         return {}
@@ -39,7 +45,10 @@ def load_captions():
 def load_card_names():
     try:
         with open("card_names.json", "r", encoding="utf-8-sig") as f:
-            return json.load(f)
+            content = f.read()
+            if not content.strip():
+                return {}
+            return json.loads(content)
     except Exception as e:
         print(f"[Ошибка card_names.json] {e}")
         return {}
@@ -50,8 +59,10 @@ card_names = load_card_names()
 all_cards = list(card_names.values())
 
 # === База данных ===
-def init_db():
-    conn = sqlite3.connect("database.db")
+DB_PATH = "database.db"
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -72,8 +83,6 @@ def init_db():
     """)
     conn.commit()
     return conn
-
-db_conn = init_db()
 
 # === Вспомогательные функции ===
 def get_photos():
@@ -97,10 +106,11 @@ def start(message):
     user_id = message.from_user.id
     username = message.from_user.username or "User"
     full_name = message.from_user.full_name
-    cur = db_conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
     cur.execute("INSERT OR IGNORE INTO users (user_id, username, full_name) VALUES (?, ?, ?)",
                 (user_id, username, full_name))
-    db_conn.commit()
+    conn.commit()
     bot.send_message(message.chat.id, "Привет! Добро пожаловать в бота!", reply_markup=main_keyboard)
 
 @bot.message_handler(func=lambda m: m.text == "Получить фото")
@@ -108,7 +118,8 @@ def get_photo(message):
     user_id = message.from_user.id
     cooldown_seconds = 3600  # 1 час
 
-    cur = db_conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
     cur.execute("SELECT last_photo_time FROM users WHERE user_id=?", (user_id,))
     row = cur.fetchone()
     last_time = row[0] if row else 0
@@ -129,7 +140,8 @@ def get_photo(message):
     photo_path = os.path.join(PHOTOS_DIR, photo_name)
     card_title = card_names.get(photo_name, "Неизвестная карточка")
 
-    caption = f"{captions.get(photo_name, 'Интересное фото!')}\n\n✨ Забирай карточку!\n{card_title}"
+    caption = f"{card_title}\n\n{captions.get(photo_name, 'Интересное фото!')}"
+    caption += "\n\n✨ Карточка добавлена в вашу коллекцию!"
 
     if not os.path.exists(photo_path):
         bot.reply_to(message, "Фото не найдено.")
@@ -141,13 +153,14 @@ def get_photo(message):
     cur.execute("INSERT OR IGNORE INTO user_cards (user_id, card_name) VALUES (?, ?)", (user_id, card_title))
     cur.execute("UPDATE users SET last_photo_time = ?, points = points + 1 WHERE user_id = ?",
                 (datetime.now().timestamp(), user_id))
-    db_conn.commit()
+    conn.commit()
 
 # === Игра "Забей пенальти" через эмодзи мяча ⚽ ===
 @bot.message_handler(func=lambda m: m.text == "Забей пенальти")
 def penalty_kick(message):
     user_id = message.from_user.id
-    cur = db_conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
     cur.execute("SELECT daily_attempts FROM users WHERE user_id = ?", (user_id,))
     attempts_left = cur.fetchone()[0]
 
@@ -159,7 +172,7 @@ def penalty_kick(message):
     result = dice_msg.dice.value
 
     if result in [4, 5]:  # Гол
-        bot.send_message(message.chat.id, "🎉 Отличный удар! Гол!")
+        bot.send_message(message.chat.id, "🎉 Вы забили гол!")
         bot.send_message(message.chat.id, "🎁 Вы получаете +1 попытку получить фото!")
 
         cur.execute("UPDATE users SET points = points + 1, daily_attempts = daily_attempts + 1 WHERE user_id = ?", (user_id,))
@@ -167,13 +180,13 @@ def penalty_kick(message):
         bot.send_message(message.chat.id, "😢 Мяч не в воротах. Повезёт в следующий раз!")
 
     cur.execute("UPDATE users SET daily_attempts = daily_attempts - 1 WHERE user_id = ?", (user_id,))
-    db_conn.commit()
+    conn.commit()
 
 # === Рейтинг по имени пользователя (full_name), а не username ===
 @bot.message_handler(func=lambda m: m.text == "Рейтинг")
 def show_rating(message):
-    user_id = message.from_user.id
-    cur = db_conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
     cur.execute("SELECT full_name, points FROM users ORDER BY points DESC LIMIT 10")
     rows = cur.fetchall()
 
@@ -181,8 +194,9 @@ def show_rating(message):
     for i, (full_name, points) in enumerate(rows, start=1):
         rating_text += f"{i}. {full_name} — {points} очков\n"
 
-    cur.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
-    user_points = cur.fetchone()[0] if cur.fetchone() else 0
+    cur.execute("SELECT points FROM users WHERE user_id = ?", (message.from_user.id,))
+    row = cur.fetchone()
+    user_points = row[0] if row else 0
 
     cur.execute("SELECT COUNT(*) FROM users WHERE points > ?", (user_points,))
     higher_users = cur.fetchone()[0]
@@ -190,11 +204,12 @@ def show_rating(message):
     rating_text += f"\n📌 Вы: {higher_users + 1}-е место | Очков: {user_points}"
     bot.reply_to(message, rating_text)
 
-# === Просмотр коллекции списком с отметкой ✅ / ❌ ===
+# === Коллекция пользователя списком с отметкой ✅ / ❌ ===
 @bot.message_handler(func=lambda m: m.text == "Моя коллекция")
 def view_collection(message):
     user_id = message.from_user.id
-    cur = db_conn.cursor()
+    conn = get_db_connection()
+    cur = conn.cursor()
     cur.execute("SELECT DISTINCT card_name FROM user_cards WHERE user_id = ?", (user_id,))
     rows = cur.fetchall()
 
@@ -259,32 +274,6 @@ def back_to_menu(message):
     user_card_list = []
     current_index = 0
     bot.send_message(message.chat.id, "Вы вернулись в главное меню.", reply_markup=main_keyboard)
-
-# === Автозагрузка коллекции при навигации ===
-@bot.message_handler(func=lambda m: m.text == "Начать просмотр коллекции")
-def view_collection(message):
-    global user_card_list, current_index
-    user_id = message.from_user.id
-    cur = db_conn.cursor()
-    cur.execute("SELECT card_name FROM user_cards WHERE user_id = ?", (user_id,))
-    rows = cur.fetchall()
-
-    if not rows:
-        bot.reply_to(message, "У вас пока нет карточек в коллекции.")
-        return
-
-    user_card_list = [row[0] for row in rows]
-    current_index = 0
-    card_name = user_card_list[current_index]
-    photo_path = os.path.join(PHOTOS_DIR, card_name)
-    description = card_names.get(card_name, "Описание недоступно")
-
-    if not os.path.exists(photo_path):
-        bot.reply_to(message, f"Фото '{card_name}' не найдено.")
-        return
-
-    bot.send_photo(message.chat.id, open(photo_path, "rb"), caption=f"{card_name}\n\n{description}")
-    bot.send_message(message.chat.id, "📖 Перелистывайте карточки:", reply_markup=collection_keyboard)
 
 # === Запуск бота ===
 if __name__ == "__main__":
