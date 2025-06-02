@@ -1,6 +1,5 @@
-﻿import os
-import subprocess
+import asyncio
+from bot import main
 
-# Для Replit нужен этот хак, чтобы запустить бота
 if __name__ == "__main__":
-    subprocess.run(["python", "bot.py"])
+    asyncio.run(main())
