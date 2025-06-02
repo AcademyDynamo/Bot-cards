@@ -1,6 +1,6 @@
-import os
+п»їimport os
 import subprocess
 
-# Для Replit нужен этот хак, чтобы запустить бота
+# Р”Р»СЏ Replit РЅСѓР¶РµРЅ СЌС‚РѕС‚ С…Р°Рє, С‡С‚РѕР±С‹ Р·Р°РїСѓСЃС‚РёС‚СЊ Р±РѕС‚Р°
 if __name__ == "__main__":
     subprocess.run(["python", "bot.py"])
