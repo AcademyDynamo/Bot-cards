@@ -1,0 +1,4 @@
+aiogram==3.0.0b8
+aiosqlite
+python-dotenv
+nest_asyncio
