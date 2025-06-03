@@ -1,8 +1,7 @@
 import os
 import random
 import asyncio
-from datetime import datetime
-
+from datetime import datetime, timedelta  # <-- Добавлена строка
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, FSInputFile
 from aiogram.filters import Command
