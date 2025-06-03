@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, FSInputFile
 from aiogram.filters import Command
 import asyncpg
+import aiosqlite
 
 # === Настройки ===
 BOT_TOKEN = '7923361349:AAGTPCue8uRWM99CwX2cFNIQX1M46WRFKJY'  # Замените на свой токен
