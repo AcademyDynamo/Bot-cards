@@ -1,8 +1,7 @@
 import os
 import random
 import asyncio
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, FSInputFile
@@ -13,7 +12,6 @@ import aiosqlite
 # === Настройки ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 PHOTOS_DIR = 'photos/'
-DAILY_RESET_HOUR = 0
 
 # === Клавиатура ===
 keyboard = ReplyKeyboardMarkup(
@@ -28,7 +26,7 @@ keyboard = ReplyKeyboardMarkup(
 # === Загрузка данных из JSON ===
 def load_captions():
     try:
-        with open("captions.json", "r", encoding="utf-8-sig") as f:
+        with open("captions.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"[Ошибка captions.json] {e}")
@@ -36,7 +34,7 @@ def load_captions():
 
 def load_card_names():
     try:
-        with open("card_names.json", "r", encoding="utf-8-sig") as f:
+        with open("card_names.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"[Ошибка card_names.json] {e}")
@@ -53,7 +51,6 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
                 full_name TEXT,
-                last_photo_time REAL DEFAULT 0,
                 points INTEGER DEFAULT 0
             )
         """)
@@ -66,6 +63,7 @@ async def init_db():
             )
         """)
         await db.commit()
+    print("[INFO] База данных инициализирована")
 
 
 # === Вспомогательные функции ===
@@ -81,6 +79,7 @@ async def get_or_create_user(user_id, full_name):
                 (user_id, full_name)
             )
             await db.commit()
+    print(f"[DEBUG] Пользователь {full_name} ({user_id}) зарегистрирован")
 
 
 # === Обработчики команд ===
@@ -187,11 +186,11 @@ async def rating(message: Message):
     await message.answer(text)
 
 
-# === Ежедневный сброс попыток (можно расширить) ===
+# === Ежедневный сброс попыток (пример) ===
 async def daily_scheduler():
     while True:
         now = datetime.now()
-        next_run = (now + timedelta(days=1)).replace(hour=DAILY_RESET_HOUR, minute=0, second=0, microsecond=0)
+        next_run = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         delay = (next_run - now).total_seconds()
         print(f"[INFO] Следующий сброс через {delay:.0f} секунд")
         await asyncio.sleep(delay)
@@ -199,10 +198,17 @@ async def daily_scheduler():
 
 # === Запуск бота ===
 async def main():
+    print("=== Бот стартовал ===")
+    if not BOT_TOKEN:
+        print("[ERROR] BOT_TOKEN не установлен")
+        return
+
     await init_db()
     dp.startup.register(daily_scheduler)
     print("[INFO] Подключение к Telegram...")
     await dp.start_polling(bot)
 
+
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
