@@ -133,7 +133,7 @@ async def auto_register(message: Message):
     user = message.from_user
     await get_or_create_user(pool, user.id, user.username, user.full_name)
 
-# === Команда: Получить фото ===
+# === Получить фото ===
 @dp.message(F.text == "Получить фото")
 async def get_photo(message: Message):
     bot = dp["bot"]
@@ -178,7 +178,7 @@ async def get_photo(message: Message):
             WHERE user_id = $2
         """, datetime.now().timestamp(), user_id)
 
-# === Команда: Забей пенальти ===
+# === Забей пенальти ===
 @dp.message(F.text == "Забей пенальти")
 async def penalty_kick(message: Message):
     bot = dp["bot"]
@@ -205,7 +205,7 @@ async def penalty_kick(message: Message):
 
         await conn.execute("UPDATE users SET daily_attempts = daily_attempts - 1 WHERE user_id = $1", user_id)
 
-# === Команда: Рейтинг ===
+# === Рейтинг ===
 @dp.message(F.text == "Рейтинг")
 async def show_rating(message: Message):
     pool = dp["pool"]
@@ -223,7 +223,7 @@ async def show_rating(message: Message):
         rating_text += f"\n📌 Вы: {higher_users + 1}-е место | Очков: {user_points}"
         await message.answer(rating_text)
 
-# === Команда: Моя коллекция ===
+# === Моя коллекция ===
 @dp.message(F.text == "Моя коллекция")
 async def view_collection_list(message: Message):
     pool = dp["pool"]
