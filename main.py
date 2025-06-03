@@ -13,7 +13,7 @@ from aiogram.enums import ParseMode
 import aiosqlite
 
 # ------- Конфигурация -------
-BOT_TOKEN = "7923361349:AAEU89HffgJJSSGBHqkBNfFLWevJKWJk_Yc"  # Заменить на свой токен
+BOT_TOKEN = "7923361349:AAH_DwW1R3EuN2A6tG8kXHDDEsfa6FxujEI"  # Заменить на свой токен
 PHOTOS_DIR = "photos"
 DATABASE_PATH = "database.db"
 COOLDOWN_HOURS = 1  # Кулдаун между получением фото
