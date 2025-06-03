@@ -1,7 +1,8 @@
 import os
 import random
 import asyncio
-from datetime import datetime, timedelta  # <-- Добавлена строка
+from datetime import datetime, timedelta
+
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, FSInputFile
 from aiogram.filters import Command
@@ -22,7 +23,7 @@ keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# === Загрузка данных из JSON ===
+# === JSON загрузка ===
 def load_captions():
     try:
         with open("captions.json", "r", encoding="utf-8") as f:
@@ -57,12 +58,11 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS user_cards (
                 user_id INTEGER,
                 card_name TEXT,
-                PRIMARY KEY (user_id, card_name),
-                FOREIGN KEY(user_id) REFERENCES users(user_id)
+                PRIMARY KEY (user_id, card_name)
             )
         """)
         await db.commit()
-    print("[INFO] База данных инициализирована")
+    print("[INFO] База данных готова")
 
 
 # === Вспомогательные функции ===
@@ -73,10 +73,7 @@ async def get_or_create_user(user_id, full_name):
     async with aiosqlite.connect("database.db") as db:
         cur = await db.execute("SELECT 1 FROM users WHERE user_id=?", (user_id,))
         if not await cur.fetchone():
-            await db.execute(
-                "INSERT INTO users (user_id, full_name) VALUES (?, ?)",
-                (user_id, full_name)
-            )
+            await db.execute("INSERT INTO users (user_id, full_name) VALUES (?, ?)", (user_id, full_name))
             await db.commit()
     print(f"[DEBUG] Пользователь {full_name} ({user_id}) зарегистрирован")
 
@@ -185,7 +182,7 @@ async def rating(message: Message):
     await message.answer(text)
 
 
-# === Ежедневный сброс попыток (пример) ===
+# === Ежедневный сброс попыток ===
 async def daily_scheduler():
     while True:
         now = datetime.now()
@@ -205,7 +202,10 @@ async def main():
     await init_db()
     dp.startup.register(daily_scheduler)
     print("[INFO] Подключение к Telegram...")
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        print(f"[FATAL] Ошибка при запуске: {e}")
 
 
 if __name__ == "__main__":
