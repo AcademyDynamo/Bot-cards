@@ -124,7 +124,10 @@ async def start(message: Message, pool=None):
     await message.answer("Привет! Добро пожаловать в бота!", reply_markup=main_keyboard)
 
 @dp.message(F.text == "Получить фото")
-async def get_photo(message: Message, pool=None):
+async def get_photo(message: Message):
+    pool = dp["pool"]
+    bot = dp["bot"]  # ✅ Получаем бота из контекста
+
     user_id = message.from_user.id
     cooldown_seconds = 3600  # 1 час
 
