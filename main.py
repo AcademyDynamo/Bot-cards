@@ -62,7 +62,7 @@ async def init_db(pool):
     async with pool.acquire() as conn:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY,
+                user_id BIGINT PRIMARY KEY,
                 username TEXT,
                 full_name TEXT,
                 last_photo_time REAL DEFAULT 0,
@@ -74,7 +74,7 @@ async def init_db(pool):
         """)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS user_cards (
-                user_id INTEGER,
+                user_id BIGINT,
                 card_name TEXT,
                 PRIMARY KEY (user_id, card_name),
                 FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
