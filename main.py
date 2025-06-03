@@ -30,8 +30,11 @@ def load_captions():
         with open("captions.json", "r", encoding="utf-8-sig") as f:
             content = f.read()
             if not content.strip():
+                print("[ERROR] captions.json пуст")
                 return {}
-            return json.loads(content)
+            data = json.loads(content)
+            print(f"[DEBUG] captions.json загружен ({len(data)} записей)")
+            return data
     except Exception as e:
         print(f"[Ошибка captions.json] {e}")
         return {}
@@ -41,8 +44,11 @@ def load_card_names():
         with open("card_names.json", "r", encoding="utf-8-sig") as f:
             content = f.read()
             if not content.strip():
+                print("[ERROR] card_names.json пуст")
                 return {}
-            return json.loads(content)
+            data = json.loads(content)
+            print(f"[DEBUG] card_names.json загружен ({len(data)} записей)")
+            return data
     except Exception as e:
         print(f"[Ошибка card_names.json] {e}")
         return {}
@@ -52,6 +58,7 @@ card_names = load_card_names()
 
 # === Инициализация БД ===
 async def init_db():
+    print("[INFO] Инициализация базы данных...")
     async with aiosqlite.connect("database.db") as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -74,6 +81,7 @@ async def init_db():
             )
         """)
         await db.commit()
+    print("[SUCCESS] База данных создана")
 
 
 # === Вспомогательные функции ===
@@ -89,6 +97,8 @@ async def reset_daily_attempts():
     async with aiosqlite.connect("database.db") as db:
         await db.execute("UPDATE users SET daily_attempts = 3, photo_attempts = 3, daily_reset_date = ?", (today,))
         await db.commit()
+    print("[INFO] Попытки успешно сброшены")
+
 
 async def get_or_create_user(user_id: int, username: str, full_name: str):
     async with aiosqlite.connect("database.db") as db:
@@ -100,6 +110,7 @@ async def get_or_create_user(user_id: int, username: str, full_name: str):
                 (user_id, username, full_name)
             )
             await db.commit()
+            print(f"[INFO] Новый пользователь добавлен: {full_name} ({user_id})")
         return True
 
 
@@ -262,8 +273,17 @@ async def daily_scheduler():
 
 # === Запуск бота ===
 async def main():
+    print("[INFO] Бот запускается...")
+
+    if not BOT_TOKEN:
+        print("[FATAL] BOT_TOKEN не установлен")
+        return
+
+    print(f"[DEBUG] BOT_TOKEN: {'*' * len(BOT_TOKEN)}")
+
     await init_db()
     dp.startup.register(daily_scheduler)
+    print("[INFO] Подключение к Telegram...")
     await dp.start_polling(bot)
 
 
