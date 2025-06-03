@@ -96,6 +96,15 @@ async def reset_daily_attempts(pool):
         await conn.execute("UPDATE users SET daily_attempts = 3, photo_attempts = 3, daily_reset_date = $1", today)
     logger.info("🔄 Попытки пользователей сброшены")
 
+async def daily_scheduler(pool):
+    while True:
+        now = datetime.now()
+        next_run = (now + timedelta(days=1)).replace(hour=DAILY_RESET_HOUR, minute=0, second=0, microsecond=0)
+        delay = (next_run - now).total_seconds()
+        logger.info(f"[INFO] Следующий сброс попыток через {delay:.0f} секунд")
+        await asyncio.sleep(delay)
+        await reset_daily_attempts(pool)
+
 # === Обработчики команд ===
 dp = Dispatcher()
 
@@ -213,16 +222,6 @@ async def view_collection_list(message: Message, pool=None):
 
     await message.answer(collection_text)
 
-# === Ежедневный сброс попыток ===
-async def daily_scheduler(pool):
-    while True:
-        now = datetime.now()
-        next_run = (now + timedelta(days=1)).replace(hour=DAILY_RESET_HOUR, minute=0, second=0, microsecond=0)
-        delay = (next_run - now).total_seconds()
-        logger.info(f"[INFO] Следующий сброс попыток через {delay:.0f} секунд")
-        await asyncio.sleep(delay)
-        await reset_daily_attempts(pool)
-
 # === Основной запуск ===
 async def main():
     pool = await get_db()
@@ -231,7 +230,8 @@ async def main():
     dp["pool"] = pool  # Передача пула в диспетчер
     bot = Bot(token=BOT_TOKEN)
 
-    dp.startup.register(lambda app: asyncio.create_task(daily_scheduler(pool)))
+    # ✅ Исправленная регистрация ежедневного сброса
+    asyncio.create_task(daily_scheduler(pool))
 
     logger.info("Бот запущен")
     await dp.start_polling(bot)
