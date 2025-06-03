@@ -1,14 +1,14 @@
 import os
 import random
 import asyncio
-import json  # ✅ Импортирован
+import json
 import logging
 from datetime import datetime, timedelta
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, FSInputFile
 from aiogram.filters import Command
-import asyncpg  # ✅ Используем PostgreSQL
+import asyncpg
 
 # === Настройка логирования ===
 logging.basicConfig(level=logging.INFO)
@@ -105,30 +105,41 @@ async def daily_scheduler(pool):
         await asyncio.sleep(delay)
         await reset_daily_attempts(pool)
 
+# === Автоматическая регистрация пользователя ===
+async def get_or_create_user(pool, user_id, username, full_name):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT user_id FROM users WHERE user_id = $1", user_id)
+        if not row:
+            await conn.execute("""
+                INSERT INTO users (user_id, username, full_name)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id) DO NOTHING
+            """, user_id, username or "User", full_name)
+
 # === Обработчики команд ===
 dp = Dispatcher()
 
 @dp.message(Command("start"))
 async def start(message: Message):
     pool = dp["pool"]
-    user_id = message.from_user.id
-    username = message.from_user.username or "User"
-    full_name = message.from_user.full_name
-
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO users (user_id, username, full_name)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (user_id) DO NOTHING
-        """, user_id, username, full_name)
-
+    user = message.from_user
+    await get_or_create_user(pool, user.id, user.username, user.full_name)
     await message.answer("Привет! Добро пожаловать в бота!", reply_markup=main_keyboard)
 
+# === Хэндлер для автоматической регистрации ===
+@dp.message()
+async def auto_register(message: Message):
+    pool = dp["pool"]
+    user = message.from_user
+    await get_or_create_user(pool, user.id, user.username, user.full_name)
+
+# === Команда: Получить фото ===
 @dp.message(F.text == "Получить фото")
 async def get_photo(message: Message):
     bot = dp["bot"]
     pool = dp["pool"]
-    user_id = message.from_user.id
+    user = message.from_user
+    user_id = user.id
     cooldown_seconds = 3600  # 1 час
 
     async with pool.acquire() as conn:
@@ -167,6 +178,7 @@ async def get_photo(message: Message):
             WHERE user_id = $2
         """, datetime.now().timestamp(), user_id)
 
+# === Команда: Забей пенальти ===
 @dp.message(F.text == "Забей пенальти")
 async def penalty_kick(message: Message):
     bot = dp["bot"]
@@ -193,6 +205,7 @@ async def penalty_kick(message: Message):
 
         await conn.execute("UPDATE users SET daily_attempts = daily_attempts - 1 WHERE user_id = $1", user_id)
 
+# === Команда: Рейтинг ===
 @dp.message(F.text == "Рейтинг")
 async def show_rating(message: Message):
     pool = dp["pool"]
@@ -210,6 +223,7 @@ async def show_rating(message: Message):
         rating_text += f"\n📌 Вы: {higher_users + 1}-е место | Очков: {user_points}"
         await message.answer(rating_text)
 
+# === Команда: Моя коллекция ===
 @dp.message(F.text == "Моя коллекция")
 async def view_collection_list(message: Message):
     pool = dp["pool"]
