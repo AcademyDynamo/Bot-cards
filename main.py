@@ -109,7 +109,8 @@ async def daily_scheduler(pool):
 dp = Dispatcher()
 
 @dp.message(Command("start"))
-async def start(message: Message, pool=None):
+async def start(message: Message):
+    pool = dp["pool"]
     user_id = message.from_user.id
     username = message.from_user.username or "User"
     full_name = message.from_user.full_name
@@ -125,9 +126,8 @@ async def start(message: Message, pool=None):
 
 @dp.message(F.text == "Получить фото")
 async def get_photo(message: Message):
+    bot = dp["bot"]
     pool = dp["pool"]
-    bot = dp["bot"]  # ✅ Получаем бота из контекста
-
     user_id = message.from_user.id
     cooldown_seconds = 3600  # 1 час
 
@@ -168,7 +168,9 @@ async def get_photo(message: Message):
         """, datetime.now().timestamp(), user_id)
 
 @dp.message(F.text == "Забей пенальти")
-async def penalty_kick(message: Message, pool=None):
+async def penalty_kick(message: Message):
+    bot = dp["bot"]
+    pool = dp["pool"]
     user_id = message.from_user.id
 
     async with pool.acquire() as conn:
@@ -192,7 +194,8 @@ async def penalty_kick(message: Message, pool=None):
         await conn.execute("UPDATE users SET daily_attempts = daily_attempts - 1 WHERE user_id = $1", user_id)
 
 @dp.message(F.text == "Рейтинг")
-async def show_rating(message: Message, pool=None):
+async def show_rating(message: Message):
+    pool = dp["pool"]
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT full_name, points FROM users ORDER BY points DESC LIMIT 10")
         rating_text = "🏆 ТОП-10 игроков:\n\n"
@@ -208,7 +211,8 @@ async def show_rating(message: Message, pool=None):
         await message.answer(rating_text)
 
 @dp.message(F.text == "Моя коллекция")
-async def view_collection_list(message: Message, pool=None):
+async def view_collection_list(message: Message):
+    pool = dp["pool"]
     all_cards = set(card_names.values())
     if not all_cards:
         await message.answer("Нет доступных карточек.")
@@ -230,10 +234,10 @@ async def main():
     pool = await get_db()
     await init_db(pool)
 
-    dp["pool"] = pool  # Передача пула в диспетчер
     bot = Bot(token=BOT_TOKEN)
+    dp["bot"] = bot   # ✅ Передача бота в контекст
+    dp["pool"] = pool
 
-    # ✅ Исправленная регистрация ежедневного сброса
     asyncio.create_task(daily_scheduler(pool))
 
     logger.info("Бот запущен")
