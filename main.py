@@ -1,15 +1,15 @@
 import os
 import random
 from datetime import datetime, timedelta
-
 import telebot
 from telebot import types
 import sqlite3
 import json
 
 # === Настройки ===
-BOT_TOKEN = '7923361349:AAGTPCue8uRWM99CwX2cFNIQX1M46WRFKJY'  # Замени на свой токен
+BOT_TOKEN = '7923361349:AAGTPCue8uRWM99CwX2cFNIQX1M46WRFKJY'  # Замените на свой токен
 PHOTOS_DIR = 'photos/'
+DAILY_RESET_HOUR = 0  # Не используется пока
 
 # === Инициализация бота ===
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -38,8 +38,7 @@ def load_captions():
             if not content.strip():
                 return {}
             return json.loads(content)
-    except Exception as e:
-        print(f"[Ошибка captions.json] {e}")
+    except Exception:
         return {}
 
 def load_card_names():
@@ -49,18 +48,13 @@ def load_card_names():
             if not content.strip():
                 return {}
             return json.loads(content)
-    except Exception as e:
-        print(f"[Ошибка card_names.json] {e}")
+    except Exception:
         return {}
 
 captions = load_captions()
 card_names = load_card_names()
 
 all_cards = list(card_names.values())
-
-# === Глобальные переменные для просмотра коллекции ===
-user_card_list = []
-current_index = 0
 
 # === База данных ===
 def init_db():
@@ -88,7 +82,10 @@ def init_db():
 
 db_conn = init_db()
 
-# === Формат времени ===
+# === Вспомогательные функции ===
+def get_photos():
+    return list(captions.keys())
+
 def format_cooldown(seconds):
     if seconds <= 0:
         return None
@@ -130,7 +127,7 @@ def get_photo(message):
         bot.reply_to(message, f"⏳ Подождите ещё {formatted_remaining}")
         return
 
-    photo_files = list(captions.keys())
+    photo_files = get_photos()
     if not photo_files:
         bot.reply_to(message, "Фотографий пока нет.")
         return
@@ -160,8 +157,7 @@ def penalty_kick(message):
     user_id = message.from_user.id
     cur = db_conn.cursor()
     cur.execute("SELECT daily_attempts FROM users WHERE user_id = ?", (user_id,))
-    row = cur.fetchone()
-    attempts_left = row[0] if row else 0
+    attempts_left = cur.fetchone()[0]
 
     if attempts_left <= 0:
         bot.reply_to(message, "У вас закончились попытки на сегодня.")
@@ -227,6 +223,9 @@ def view_collection(message):
     bot.reply_to(message, collection_text)
 
 # === Листание коллекции ===
+user_card_list = []
+current_index = 0
+
 @bot.message_handler(func=lambda m: m.text == "⬅️ Предыдущая")
 def prev_card(message):
     global current_index, user_card_list
@@ -270,7 +269,7 @@ def back_to_menu(message):
     current_index = 0
     bot.send_message(message.chat.id, "Вы вернулись в главное меню.", reply_markup=main_keyboard)
 
-# === Автозапуск бота ===
+# === Запуск бота ===
 if __name__ == "__main__":
     print("Бот запущен...")
     bot.polling(none_stop=True)
